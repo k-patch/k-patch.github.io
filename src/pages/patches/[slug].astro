@@ -1,0 +1,125 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import SEO from '../../components/SEO.astro';
+import { getCollection } from 'astro:content';
+import { getFileSize, getFileNameFromUrl } from '../../utils/fileHelpers';
+import App from '../../components/App';
+
+// Generate static paths for all patches
+export async function getStaticPaths() {
+  const allPatches = await getCollection('patches');
+  return allPatches.map(patch => ({
+    params: { slug: patch.id },
+    props: { patch },
+  }));
+}
+
+const { patch } = Astro.props;
+const allPatches = await getCollection('patches');
+
+// Transform all patches for App component
+const patchesData = allPatches.map(p => ({
+  ...p.data,
+  id: p.data.id || p.id,
+  slug: p.id,
+  versionDate: p.data.versionDate || new Date().toISOString().split('T')[0],
+  files: (p.data.files || []).map(file => {
+    const fileName = getFileNameFromUrl(file.url || '');
+    return {
+      ...file,
+      name: file.name ? `${fileName} (${file.name})` : fileName,
+      downloadName: fileName,
+      size: file.size || getFileSize(file.url || ''),
+    };
+  }),
+  description: (() => {
+    const body = p.body || '';
+    const installSplit = body.split('### 설치 방법');
+    const changelogSplit = body.split('### 변경 이력');
+
+    let description = body;
+    
+    // Find indices
+    const installIdx = body.indexOf('### 설치 방법');
+    const changelogIdx = body.indexOf('### 변경 이력');
+    
+    let endOfDesc = body.length;
+    if (installIdx !== -1) endOfDesc = Math.min(endOfDesc, installIdx);
+    if (changelogIdx !== -1) endOfDesc = Math.min(endOfDesc, changelogIdx);
+    
+    return body.substring(0, endOfDesc).trim();
+  })(),
+  installation: (() => {
+      const body = p.body || '';
+      const parts = body.split('### 설치 방법');
+      if (parts.length > 1) {
+           const content = parts[1];
+           const nextSectionIdx = content.search(/### (변경 이력|설치 방법|소개)/);
+           if (nextSectionIdx !== -1) {
+               return content.substring(0, nextSectionIdx).trim();
+           }
+           return content.trim();
+      }
+      return undefined;
+  })(),
+  changelog: (() => {
+      const body = p.body || '';
+      const parts = body.split('### 변경 이력');
+      if (parts.length > 1) {
+           const content = parts[1];
+           const nextSectionIdx = content.search(/### (변경 이력|설치 방법|소개)/);
+           if (nextSectionIdx !== -1) {
+               return content.substring(0, nextSectionIdx).trim();
+           }
+           return content.trim();
+      }
+      return undefined;
+  })()
+})).sort((a, b) => {
+  const dateA = new Date(a.versionDate).getTime();
+  const dateB = new Date(b.versionDate).getTime();
+  return dateB - dateA;
+});
+
+// Current patch data for SEO
+const currentPatchData = {
+  ...patch.data,
+  id: patch.data.id || patch.id,
+  slug: patch.id,
+  versionDate: patch.data.versionDate || new Date().toISOString().split('T')[0],
+  files: (patch.data.files || []).map(file => {
+    const fileName = getFileNameFromUrl(file.url || '');
+    return {
+      ...file,
+      name: file.name ? `${fileName} (${file.name})` : fileName,
+      downloadName: fileName,
+      size: file.size || getFileSize(file.url || ''),
+    };
+  }),
+  description: patch.body || ''
+};
+
+// Prepare SEO data
+const seoTitle = patch.data.title;
+const seoDescription = patch.body 
+  ? patch.body.slice(0, 160).replace(/[#*\[\]]/g, '').trim() + '...'
+  : `${patch.data.title}에 대한 패치 및 모드 정보입니다.`;
+const seoImage = patch.data.imageUrl;
+---
+
+<Layout>
+  <SEO
+    slot="head"
+    title={seoTitle}
+    description={seoDescription}
+    image={seoImage}
+    type="article"
+    publishedTime={patch.data.versionDate}
+    modifiedTime={patch.data.versionDate}
+  />
+  <App 
+    client:only="react" 
+    initialPatches={patchesData}
+    initialOpenSlug={patch.id}
+  />
+</Layout>

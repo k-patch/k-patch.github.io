@@ -1,0 +1,96 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SEO from '../components/SEO.astro';
+import App from '../components/App'; // Ensure App.tsx uses 'export default App'
+import { getCollection } from 'astro:content';
+import { getFileSize, getFileNameFromUrl } from '../utils/fileHelpers';
+
+// Fetch all patches from content collection
+const allPatches = await getCollection('patches');
+
+// Transform content data to match component props if necessary, 
+// though we aligned schema with interface mostly.
+// getCollection returns array of { id, slug, body, collection, data: {...} }
+const patchesData = allPatches.map(patch => ({
+  ...patch.data,
+  id: patch.data.id || patch.id, // Fallback to filename ID if frontmatter ID missing
+  slug: patch.id, // Add slug for URL routing
+  versionDate: patch.data.versionDate || new Date().toISOString().split('T')[0], // Fallback to today
+      files: (patch.data.files || []).map(file => {
+        const fileName = getFileNameFromUrl(file.url || '');
+        return {
+          ...file,
+          name: file.name ? `${fileName} (${file.name})` : fileName,
+          downloadName: fileName,
+          size: file.size || getFileSize(file.url || ''),
+        };
+      }),
+  description: (() => {
+    // Basic splitting logic
+    const body = patch.body || '';
+    const installSplit = body.split('### 설치 방법');
+    const changelogSplit = body.split('### 변경 이력');
+
+    let description = body;
+    
+    // If installation exists, description is everything before it
+    if (installSplit.length > 1) {
+        description = installSplit[0];
+    }
+    // If changelog exists and appears before installation (less likely but possible)
+    // Actually, usually headers are sequential. 
+    // Let's do a more robust regex-ish approach or simple index based.
+    
+    // Find indices
+    const installIdx = body.indexOf('### 설치 방법');
+    const changelogIdx = body.indexOf('### 변경 이력');
+    
+    let endOfDesc = body.length;
+    if (installIdx !== -1) endOfDesc = Math.min(endOfDesc, installIdx);
+    if (changelogIdx !== -1) endOfDesc = Math.min(endOfDesc, changelogIdx);
+    
+    return body.substring(0, endOfDesc).trim();
+  })(),
+  installation: (() => {
+      const body = patch.body || '';
+      const parts = body.split('### 설치 방법');
+      if (parts.length > 1) {
+          // Check if there is another section after this
+           const content = parts[1];
+           const nextSectionIdx = content.search(/### (변경 이력|설치 방법|소개)/);
+           if (nextSectionIdx !== -1) {
+               return content.substring(0, nextSectionIdx).trim();
+           }
+           return content.trim();
+      }
+      return undefined;
+  })(),
+  changelog: (() => {
+      const body = patch.body || '';
+      const parts = body.split('### 변경 이력');
+      if (parts.length > 1) {
+           const content = parts[1];
+           const nextSectionIdx = content.search(/### (변경 이력|설치 방법|소개)/);
+           if (nextSectionIdx !== -1) {
+               return content.substring(0, nextSectionIdx).trim();
+           }
+           return content.trim();
+      }
+      return undefined;
+  })()
+})).sort((a, b) => {
+  const dateA = new Date(a.versionDate).getTime();
+  const dateB = new Date(b.versionDate).getTime();
+  return dateB - dateA;
+});
+---
+
+<Layout>
+  <SEO
+    slot="head"
+    title="K-Patch | 게임 한글화 & 모드"
+    description="게임 한글화 패치, 번역 파일 및 유용한 모드를 제공하는 개인 저장소입니다."
+    type="website"
+  />
+  <App client:only="react" initialPatches={patchesData} />
+</Layout>

@@ -1,0 +1,44 @@
+backend:
+  name: git-gateway
+  branch: main # Branch to update (optional; defaults to master)
+
+local_backend: true # Enable local testing
+
+
+media_folder: "public/images" # Default media folder (e.g. for images)
+public_folder: "/images" # Public URL path for default media
+
+collections:
+  - name: "patches" # Used in routes, e.g., /admin/collections/blog
+    label: "Patches" # Used in the UI
+    folder: "src/content/patches" # The path to the folder where the documents are stored
+    create: true # Allow users to create new documents in this collection
+    slug: "{{slug}}" # Filename template, e.g., YYYY-MM-DD-title.md
+    fields: # The fields for each document, usually in front matter
+      - {label: "ID", name: "id", widget: "uuid"}
+      - {label: "Title", name: "title", widget: "string"}
+      - {label: "Game URL", name: "url", widget: "string", required: false}
+      - {label: "Image", name: "imageUrl", widget: "image"}
+      - {label: "Version Date", name: "versionDate", widget: "date", format: "YYYY-MM-DD"}
+
+      - {label: "Download Count", name: "downloadCount", widget: "number", default: 0}
+      - {label: "Description", name: "body", widget: "markdown"}
+      - label: "Files"
+        name: "files"
+        widget: "list"
+        fields:
+          - {label: "Function Reference", name: "name", widget: "string", required: false, hint: "Displayed in parentheses next to the filename"}
+          - {label: "Size", name: "size", widget: "string", required: false, hint: "Leave empty to auto-calculate"}
+          - label: "File"
+            name: "url"
+            widget: "file"
+            required: false
+            media_folder: "/public/files/{{slug}}"
+            public_folder: "/files/{{slug}}"
+      - label: "Sources"
+        name: "sources"
+        widget: "list"
+        required: false
+        fields:
+          - {label: "Name", name: "name", widget: "string"}
+          - {label: "URL", name: "url", widget: "string"}

@@ -1,0 +1,126 @@
+---
+export interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  url?: string;
+  type?: 'website' | 'article' | 'software';
+  publishedTime?: string;
+  modifiedTime?: string;
+  author?: string;
+}
+
+const {
+  title = 'K-Patch | 게임 한글화 & 모드',
+  description = '게임 한글화 패치, 번역 파일 및 유용한 모드를 제공하는 개인 저장소입니다.',
+  image = '/images/og-default.png',
+  url = Astro.url.href,
+  type = 'website',
+  publishedTime,
+  modifiedTime,
+  author = 'K-Patch',
+} = Astro.props;
+
+const siteName = 'K-Patch';
+const fullTitle = title.includes('K-Patch') ? title : `${title} | K-Patch`;
+
+// --- Structured Data (JSON-LD) Logic ---
+const schemaTypeMap = {
+  website: 'WebSite',
+  article: 'Article',
+  software: 'SoftwareApplication',
+} as const;
+
+const schemaType = schemaTypeMap[type] || 'WebSite';
+
+const baseSchema = {
+  '@context': 'https://schema.org',
+  '@type': schemaType,
+  name: title,
+  description: description,
+  url: url,
+};
+
+let schema: any;
+
+if (type === 'website') {
+  schema = {
+    ...baseSchema,
+    inLanguage: 'ko-KR',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${Astro.site || Astro.url.origin}?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+} else if (type === 'article') {
+  schema = {
+    ...baseSchema,
+    '@type': 'Article',
+    headline: title,
+    image: image ? new URL(image, Astro.site || Astro.url.origin).href : undefined,
+    datePublished: publishedTime,
+    dateModified: modifiedTime || publishedTime,
+    author: {
+      '@type': 'Person',
+      name: author,
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'K-Patch',
+      logo: {
+        '@type': 'ImageObject',
+        url: new URL('/images/og-default.png', Astro.site || Astro.url.origin).href,
+      },
+    },
+    inLanguage: 'ko-KR',
+  };
+} else if (type === 'software') {
+  schema = {
+    ...baseSchema,
+    '@type': 'SoftwareApplication',
+    applicationCategory: 'GameApplication',
+    operatingSystem: 'Windows, macOS, Linux',
+    inLanguage: 'ko-KR',
+  };
+}
+---
+
+<!-- Primary Meta Tags -->
+<title>{fullTitle}</title>
+<meta name="title" content={fullTitle} />
+<meta name="description" content={description} />
+<meta name="keywords" content="게임 한글화, 게임 번역, 게임 모드, 한글 패치, 한글화 패치, localization, game mod, 게임 커스터마이징" />
+<meta name="author" content={author} />
+
+<!-- Canonical URL -->
+<link rel="canonical" href={url} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content={type === 'article' ? 'article' : 'website'} />
+<meta property="og:url" content={url} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={new URL(image, Astro.site || Astro.url.origin).href} />
+<meta property="og:site_name" content={siteName} />
+<meta property="og:locale" content="ko_KR" />
+
+{publishedTime && <meta property="article:published_time" content={publishedTime} />}
+{modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={url} />
+<meta property="twitter:title" content={fullTitle} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={new URL(image, Astro.site || Astro.url.origin).href} />
+
+<!-- Additional SEO -->
+<meta name="robots" content="index, follow" />
+<meta name="googlebot" content="index, follow" />
+
+<!-- Structured Data -->
+{schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} />}
